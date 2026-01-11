@@ -47,6 +47,14 @@ interface Service {
   review_count: number;
 }
 
+interface ServiceAddon {
+  id: string;
+  name: string;
+  nameAr: string;
+  price: number;
+  isRequired: boolean;
+}
+
 interface BookingData {
   serviceId: string;
   scheduledDate: string;
@@ -72,6 +80,8 @@ export default function BookingPage() {
   const { language, t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(1);
   const [service, setService] = useState<Service | null>(null);
+  const [addons, setAddons] = useState<ServiceAddon[]>([]);
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,10 +119,15 @@ export default function BookingPage() {
       const response = await fetch(`/api/services/${params.serviceId}`);
       const data = await response.json();
 
-      if (response.ok && data.service) {
-        setService(data.service);
+      if (response.ok && data.success && data.data) {
+        setService(data.data.service);
+        setAddons(data.data.addons || []);
+        const requiredAddons = (data.data.addons || [])
+          .filter((addon: ServiceAddon) => addon.isRequired)
+          .map((addon: ServiceAddon) => addon.id);
+        setSelectedAddons(requiredAddons);
       } else {
-        setError('فشل في تحميل بيانات الخدمة');
+        setError(data.error || 'فشل في تحميل بيانات الخدمة');
       }
     } catch (err) {
       console.error('Error fetching service:', err);
@@ -182,10 +197,32 @@ export default function BookingPage() {
     }
   };
 
+  const calculateTotalAmount = () => {
+    if (!service) return 0;
+    const basePrice = service.base_price;
+    const addonsTotal = addons
+      .filter(addon => selectedAddons.includes(addon.id))
+      .reduce((sum, addon) => sum + addon.price, 0);
+    return basePrice + addonsTotal;
+  };
+
+  const toggleAddon = (addonId: string) => {
+    const addon = addons.find(a => a.id === addonId);
+    if (addon?.isRequired) return;
+
+    setSelectedAddons(prev =>
+      prev.includes(addonId)
+        ? prev.filter(id => id !== addonId)
+        : [...prev, addonId]
+    );
+  };
+
   const createBooking = async () => {
     try {
       setSubmitting(true);
       setError(null);
+
+      const totalAmount = calculateTotalAmount();
 
       const response = await fetch('/api/bookings/guest', {
         method: 'POST',
@@ -198,7 +235,8 @@ export default function BookingPage() {
           customer_phone: bookingData.customerPhone,
           customer_address: bookingData.customerAddress,
           notes: bookingData.notes,
-          total_amount: service?.base_price,
+          total_amount: totalAmount,
+          addon_ids: selectedAddons,
         }),
       });
 
@@ -223,12 +261,14 @@ export default function BookingPage() {
       setSubmitting(true);
       setError(null);
 
+      const totalAmount = calculateTotalAmount();
+
       const response = await fetch('/api/payments/guest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           booking_id: bookingId,
-          amount: service?.base_price,
+          amount: totalAmount,
           payment_method: 'credit_card',
           card_last_4: paymentData.cardNumber.slice(-4),
           card_holder_name: paymentData.cardName,
@@ -442,6 +482,45 @@ export default function BookingPage() {
                     </div>
                   </div>
                 </div>
+
+                {addons.length > 0 && (
+                  <div className="border-t pt-6 mt-6">
+                    <h3 className="font-bold mb-4">
+                      {language === 'ar' ? 'الإضافات الاختيارية' : 'Optional Add-ons'}
+                    </h3>
+                    <div className="space-y-3">
+                      {addons.map((addon) => (
+                        <label
+                          key={addon.id}
+                          className={`flex items-center justify-between p-4 border rounded-xl transition-all ${
+                            selectedAddons.includes(addon.id) ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-primary/50'
+                          } ${addon.isRequired ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedAddons.includes(addon.id)}
+                              onChange={() => toggleAddon(addon.id)}
+                              disabled={addon.isRequired}
+                              className="w-5 h-5 rounded border-input"
+                            />
+                            <div>
+                              <span className="font-medium block">
+                                {language === 'ar' ? addon.nameAr : addon.name}
+                              </span>
+                              {addon.isRequired && (
+                                <span className="text-xs text-muted-foreground">
+                                  {language === 'ar' ? '(مطلوب)' : '(Required)'}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-primary font-bold">+{addon.price} {language === 'ar' ? 'ريال' : 'SAR'}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </Card>
             </div>
           )}
@@ -558,10 +637,37 @@ export default function BookingPage() {
                     {bookingData.notes && <p><strong>{language === 'ar' ? 'ملاحظات:' : 'Notes:'}</strong> {bookingData.notes}</p>}
                   </div>
                 </div>
+                {selectedAddons.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h3 className="font-bold mb-2">{language === 'ar' ? 'الإضافات المختارة' : 'Selected Add-ons'}</h3>
+                    <div className="space-y-2">
+                      {addons
+                        .filter(addon => selectedAddons.includes(addon.id))
+                        .map(addon => (
+                          <div key={addon.id} className="flex items-center justify-between text-sm">
+                            <span>{language === 'ar' ? addon.nameAr : addon.name}</span>
+                            <span className="font-medium">+{addon.price} {language === 'ar' ? 'ريال' : 'SAR'}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
                 <div className="border-t pt-4">
-                  <div className="flex items-center justify-between text-lg font-bold">
-                    <span>{language === 'ar' ? 'الإجمالي' : 'Total'}</span>
-                    <span className="text-2xl text-primary">{service.base_price} {language === 'ar' ? 'ريال' : 'SAR'}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>{language === 'ar' ? 'سعر الخدمة' : 'Service Price'}</span>
+                      <span>{service.base_price} {language === 'ar' ? 'ريال' : 'SAR'}</span>
+                    </div>
+                    {selectedAddons.length > 0 && (
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span>{language === 'ar' ? 'الإضافات' : 'Add-ons'}</span>
+                        <span>+{addons.filter(a => selectedAddons.includes(a.id)).reduce((sum, a) => sum + a.price, 0)} {language === 'ar' ? 'ريال' : 'SAR'}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-lg font-bold pt-2 border-t">
+                      <span>{language === 'ar' ? 'الإجمالي' : 'Total'}</span>
+                      <span className="text-2xl text-primary">{calculateTotalAmount()} {language === 'ar' ? 'ريال' : 'SAR'}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -576,7 +682,7 @@ export default function BookingPage() {
               <div className="mb-6 p-4 bg-primary/10 rounded-lg">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">{language === 'ar' ? 'المبلغ المطلوب' : 'Amount Due'}</span>
-                  <span className="text-2xl font-bold text-primary">{service.base_price} {language === 'ar' ? 'ريال' : 'SAR'}</span>
+                  <span className="text-2xl font-bold text-primary">{calculateTotalAmount()} {language === 'ar' ? 'ريال' : 'SAR'}</span>
                 </div>
               </div>
               <div className="space-y-4">
@@ -683,7 +789,7 @@ export default function BookingPage() {
                 <div className="text-sm text-muted-foreground space-y-2">
                   <p><strong>{language === 'ar' ? 'الخدمة:' : 'Service:'}</strong> {language === 'ar' && service.name_ar ? service.name_ar : service.name}</p>
                   <p><strong>{language === 'ar' ? 'التاريخ:' : 'Date:'}</strong> {format(new Date(bookingData.scheduledDate), 'dd/MM/yyyy')} - {bookingData.scheduledTime}</p>
-                  <p><strong>{language === 'ar' ? 'المبلغ المدفوع:' : 'Amount Paid:'}</strong> {service.base_price} {language === 'ar' ? 'ريال' : 'SAR'}</p>
+                  <p><strong>{language === 'ar' ? 'المبلغ المدفوع:' : 'Amount Paid:'}</strong> {calculateTotalAmount()} {language === 'ar' ? 'ريال' : 'SAR'}</p>
                 </div>
               </div>
               <p className="text-sm text-muted-foreground mb-6">

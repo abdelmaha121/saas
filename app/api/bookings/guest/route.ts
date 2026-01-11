@@ -79,9 +79,24 @@ export async function POST(request: NextRequest) {
           customer_name,
           customer_email,
           customer_phone,
+          addon_ids: body.addon_ids || [],
         }),
       ]
     );
+
+    if (body.addon_ids && Array.isArray(body.addon_ids) && body.addon_ids.length > 0) {
+      const addons = await query<any[]>(
+        `SELECT id, price FROM service_addons WHERE id IN (${body.addon_ids.map(() => '?').join(',')}) AND service_id = ?`,
+        [...body.addon_ids, service_id]
+      );
+
+      for (const addon of addons) {
+        await query(
+          `INSERT INTO booking_addons (booking_id, addon_id, price) VALUES (?, ?, ?)`,
+          [bookingId, addon.id, addon.price]
+        );
+      }
+    }
 
     const bookings = await query<any[]>(
       `SELECT b.*,
