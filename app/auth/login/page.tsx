@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Link from 'next/link';
-import { LogIn, Eye, EyeOff } from 'lucide-react';
+import { LogIn, Eye, EyeOff, ArrowLeft, Home } from 'lucide-react';
+import Header from '@/components/layout/Header';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -67,8 +68,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
-      <Card className="w-full max-w-md p-8 shadow-2xl">
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
+        <Card className="w-full max-w-md p-8 shadow-2xl">
+          <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6 transition-colors">
+            <ArrowLeft className="h-4 w-4 ml-2" />
+            {language === 'ar' ? 'العودة للرئيسية' : 'Back to Home'}
+          </Link>
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
             <LogIn className="w-8 h-8 text-primary" />
@@ -187,7 +194,8 @@ export default function LoginPage() {
             </Link>
           </p>
         </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }

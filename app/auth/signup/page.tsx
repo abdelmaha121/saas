@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Link from 'next/link';
-import { UserPlus, Eye, EyeOff } from 'lucide-react';
+import { UserPlus, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import Header from '@/components/layout/Header';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -97,8 +98,14 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 p-4">
-      <Card className="w-full max-w-md p-8 shadow-2xl">
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 p-4">
+        <Card className="w-full max-w-md p-8 shadow-2xl">
+          <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-6 transition-colors">
+            <ArrowLeft className="h-4 w-4 ml-2" />
+            {language === 'ar' ? 'العودة للرئيسية' : 'Back to Home'}
+          </Link>
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full mb-4">
             <UserPlus className="w-8 h-8 text-primary" />
@@ -271,7 +278,8 @@ export default function SignupPage() {
             </Link>
           </p>
         </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }
